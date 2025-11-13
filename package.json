@@ -1,0 +1,51 @@
+{
+  "name": "ecommerce",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/ashishv2005/Ecommerce#readme",
+  "bugs": {
+    "url": "https://github.com/ashishv2005/Ecommerce/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/ashishv2005/Ecommerce.git"
+  },
+  "license": "ISC",
+  "author": "Ashish",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon --exec ts-node -P tsconfig.node.json src/app.ts",
+    "dev:alt": "npx ts-node --transpile-only src/app.ts",
+    "start": "node dist/app.js",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.9.2",
+    "@types/nodemailer": "^7.0.3",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "cron": "^4.3.3",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "express-validator": "^7.3.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.15.3",
+    "nodemailer": "^7.0.10",
+    "redis": "^5.9.0",
+    "sequelize": "^6.37.7",
+    "socket.io": "^4.8.1",
+    "stripe": "^19.1.0"
+  }
+}
