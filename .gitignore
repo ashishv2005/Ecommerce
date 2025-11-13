@@ -46,3 +46,8 @@ coverage/
 
 # Uploads folder (You use URL-based images, but keeping for future use)
 uploads/
+
+# Prevent key files
+*.pem
+*.key
+*.pub

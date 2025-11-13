@@ -41,13 +41,13 @@ export interface Config {
 }
 
 export const config: Config = {
-  port: parseInt(process.env.PORT || "3001"),
+  port: parseInt(process.env.PORT || ""),
   database: {
-    host: process.env.DB_HOST || "localhost",
-    port: parseInt(process.env.DB_PORT || "3306"),
-    username: process.env.DB_USER || "root",
-    password: process.env.DB_PASS || "@Ashishv007",
-    database: process.env.DB_NAME || "ecommerce",
+    host: process.env.DB_HOST || "",
+    port: parseInt(process.env.DB_PORT || ""),
+    username: process.env.DB_USER || "",
+    password: process.env.DB_PASS || "",
+    database: process.env.DB_NAME || "",
     dialect: "mysql" as Dialect,
     timezone: "+05:30",
   },
@@ -57,29 +57,23 @@ export const config: Config = {
     password: process.env.REDIS_PASSWORD,
   },
   jwt: {
-    secret: process.env.JWT_SECRET || "AK47afifwef",
-    expiresIn: process.env.JWT_EXPIRES_IN || "1d",
+    secret: process.env.JWT_SECRET || "",
+    expiresIn: process.env.JWT_EXPIRES_IN || "",
   },
   stripe: {
-    secretKey:
-      process.env.STRIPE_SECRET_KEY ||
-      "sk_test_51SBZbID8KLspf4d76yPRjL9HabEjQe7oXrWTKuSxiLA9b9J3S8yB8uwfSltWS0wznLlV2iI0WYSE685V89MSfGvk0090iWCQ6w",
-    webhookSecret:
-      process.env.STRIPE_WEBHOOK_SECRET ||
-      "whsec_8b26e6d574691924df65ea548f0021a3e5341d8f5ba7c3f9291ab55e79eefd1f",
-    publicKey:
-      process.env.STRIPE_PUBLISHABLE_KEY ||
-      "pk_test_51SBZbID8KLspf4d7t9PJXnV8pvpsNboh2r6kmyLG2KHyTE0VEwQbw89PqYPm3kbhrauGOQIIwUqBHG6VzEHakqHy00as0Gaq9R",
+    secretKey: process.env.STRIPE_SECRET_KEY || "",
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+    publicKey: process.env.STRIPE_PUBLISHABLE_KEY || "",
   },
   email: {
-    host: process.env.EMAIL_HOST || "smtp.gmail.com",
-    port: parseInt(process.env.EMAIL_PORT || "587"),
-    user: process.env.EMAIL_USER || "infos.webwizard@gmail.com",
-    pass: process.env.EMAIL_PASS || "WebWizard@123",
-    from: process.env.EMAIL_FROM || "noreply@ecommerce.com",
+    host: process.env.EMAIL_HOST || "",
+    port: parseInt(process.env.EMAIL_PORT || ""),
+    user: process.env.EMAIL_USER || "",
+    pass: process.env.EMAIL_PASS || "",
+    from: process.env.EMAIL_FROM || "",
   },
   app: {
-    name: process.env.APP_NAME || "E-Commerce App",
+    name: process.env.APP_NAME || "",
     url: process.env.APP_URL || "http://localhost:3000",
   },
 };
