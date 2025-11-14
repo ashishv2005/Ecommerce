@@ -12,18 +12,21 @@ const router = Router();
 
 router.use(authenticate);
 
+// ------------------ Get User Chats ------------------
 router.get("/", getUserChats);
+
+// ------------------ Send Message ------------------
 router.post(
   "/",
   [
-    body("userId").isInt({ min: 1 }).withMessage("Valid user ID is required"),
+    body("userId").isUUID().withMessage("Valid user UUID is required"),
     body("message").notEmpty().withMessage("Message is required"),
     handleValidationErrors,
   ],
   sendMessage
 );
 
-// Admin only routes
+// ------------------ Admin: Get All Chats ------------------
 router.get("/admin/all", authorize("admin"), getAllChats);
 
 export default router;

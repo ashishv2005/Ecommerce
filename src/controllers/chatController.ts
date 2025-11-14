@@ -1,36 +1,52 @@
 import { Request, Response } from "express";
 import { SocketService } from "../services/socketService";
 import { AuthRequest } from "../middleware/auth";
+import { validate as isUUID } from "uuid";
 
+// ------------------ Get User Chats ------------------
 export const getUserChats = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId: string = req.user.id;
+
+    if (!isUUID(userId)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+
     const chats = await SocketService.getUserChats(userId);
-    res.json(chats);
+    return res.json(chats);
   } catch (error: any) {
     console.error("Get user chats error:", error);
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 };
 
+// ------------------ Admin: Get All Chats ------------------
 export const getAllChats = async (req: AuthRequest, res: Response) => {
   try {
     const chats = await SocketService.getAllChats();
-    res.json(chats);
+    return res.json(chats);
   } catch (error: any) {
     console.error("Get all chats error:", error);
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 };
 
+// ------------------ Send Message ------------------
 export const sendMessage = async (req: AuthRequest, res: Response) => {
   try {
     const { userId, message } = req.body;
-    const sender = req.user.role === "admin" ? "admin" : "user";
-    const adminId = req.user.role === "admin" ? req.user.id : undefined;
 
-    // This will be handled by socket service in real-time
-    // For REST API, we'll create the message directly
+    if (!isUUID(userId)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+
+    const sender = req.user.role === "admin" ? "admin" : "user";
+    const adminId = req.user.role === "admin" ? req.user.id : null;
+
+    if (adminId && !isUUID(adminId)) {
+      return res.status(400).json({ message: "Invalid admin ID format" });
+    }
+
     const { Chat } = await import("../models/Chat");
 
     const chat = await Chat.create({
@@ -41,9 +57,9 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       read: false,
     });
 
-    res.status(201).json(chat);
+    return res.status(201).json(chat);
   } catch (error: any) {
     console.error("Send message error:", error);
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 };

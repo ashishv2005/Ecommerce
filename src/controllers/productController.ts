@@ -2,7 +2,9 @@ import { Request, Response } from "express";
 import { Product, ProductImage, ProductPricing } from "../models";
 import { Op } from "sequelize";
 import { AuthRequest } from "../middleware/auth";
+import { validate as isUUID } from "uuid";
 
+// ------------------ Get Products ------------------
 export const getProducts = async (
   req: Request,
   res: Response
@@ -45,13 +47,10 @@ export const getProducts = async (
       order: [["createdAt", "DESC"]],
     });
 
-    const products = rows.map((product) => {
-      const productData = product.toJSON();
-      return {
-        ...productData,
-        stockStatus: product.getStockStatus(),
-      };
-    });
+    const products = rows.map((product) => ({
+      ...product.toJSON(),
+      stockStatus: product.getStockStatus(),
+    }));
 
     res.json({
       products,
@@ -65,6 +64,7 @@ export const getProducts = async (
   }
 };
 
+// ------------------ Get Single Product ------------------
 export const getProduct = async (
   req: Request,
   res: Response
@@ -72,12 +72,15 @@ export const getProduct = async (
   try {
     const { id } = req.params;
 
+    // UUID validation
+    if (!isUUID(id)) {
+      res.status(400).json({ message: "Invalid product ID format" });
+      return;
+    }
+
     const product = await Product.findByPk(id, {
       include: [
-        {
-          model: ProductImage,
-          as: "images",
-        },
+        { model: ProductImage, as: "images" },
         {
           model: ProductPricing,
           as: "pricing",
@@ -92,18 +95,17 @@ export const getProduct = async (
       return;
     }
 
-    const enhancedProduct = {
+    res.json({
       ...product.toJSON(),
       stockStatus: product.getStockStatus(),
-    };
-
-    res.json(enhancedProduct);
+    });
   } catch (error) {
     console.error("Get product error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
 
+// ------------------ Create Product ------------------
 export const createProduct = async (
   req: AuthRequest,
   res: Response
@@ -127,23 +129,27 @@ export const createProduct = async (
       lowStockThreshold: lowStockThreshold || 10,
     });
 
+    // Add Images
     if (images && images.length > 0) {
       const productImages = images.map((imageUrl: string, index: number) => ({
-        productId: product.id,
+        productId: product.id, // UUID
         imageUrl,
         isPrimary: index === 0,
       }));
+
       await ProductImage.bulkCreate(productImages);
     }
 
+    // Add Pricing
     if (pricing && pricing.length > 0) {
       const productPricing = pricing.map((price: any) => ({
-        productId: product.id,
+        productId: product.id, // UUID
         batchStart: price.batchStart,
         batchEnd: price.batchEnd,
         price: price.price,
         costPrice: price.costPrice,
       }));
+
       await ProductPricing.bulkCreate(productPricing);
     }
 
@@ -161,13 +167,19 @@ export const createProduct = async (
   }
 };
 
+// ------------------ Update Product ------------------
 export const updateProduct = async (
   req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+
+    // UUID validation
+    if (!isUUID(id)) {
+      res.status(400).json({ message: "Invalid product ID format" });
+      return;
+    }
 
     const product = await Product.findByPk(id);
     if (!product) {
@@ -175,7 +187,7 @@ export const updateProduct = async (
       return;
     }
 
-    await product.update(updateData);
+    await product.update(req.body);
     res.json(product);
   } catch (error) {
     console.error("Update product error:", error);
@@ -183,12 +195,19 @@ export const updateProduct = async (
   }
 };
 
+// ------------------ Delete Product ------------------
 export const deleteProduct = async (
   req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
     const { id } = req.params;
+
+    // UUID validation
+    if (!isUUID(id)) {
+      res.status(400).json({ message: "Invalid product ID format" });
+      return;
+    }
 
     const product = await Product.findByPk(id);
     if (!product) {
@@ -197,6 +216,7 @@ export const deleteProduct = async (
     }
 
     await product.update({ isActive: false });
+
     res.json({ message: "Product deleted successfully" });
   } catch (error) {
     console.error("Delete product error:", error);

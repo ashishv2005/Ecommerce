@@ -19,14 +19,13 @@ export interface PaymentResult {
 }
 
 export class PaymentService {
-  // Create payment intent with automatic methods
+  // ------------------ Create Payment Intent ------------------
   static async createPaymentIntent(
     amount: number,
     metadata: any = {},
     paymentMethod?: PaymentMethod
   ) {
     try {
-      // Ensure minimum ₹50
       const minAmount = 50;
       const finalAmount = amount < minAmount ? minAmount : amount;
 
@@ -49,14 +48,14 @@ export class PaymentService {
     }
   }
 
-  // Create UPI-only payment intent
+  // ------------------ Create UPI Payment ------------------
   static async createUPIPayment(amount: number, metadata: any = {}) {
     try {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100),
         currency: "inr",
         metadata,
-        payment_method_types: ["upi"], // UPI only
+        payment_method_types: ["upi"],
         description: `UPI Payment for order ${metadata.orderId}`,
       });
 
@@ -72,7 +71,7 @@ export class PaymentService {
     }
   }
 
-  // Confirm payment
+  // ------------------ Confirm Payment ------------------
   static async confirmPayment(
     paymentIntentId: string,
     paymentMethodId?: string
@@ -95,7 +94,9 @@ export class PaymentService {
           paymentIntent,
           message: "Payment completed successfully",
         };
-      } else if (paymentIntent.status === "requires_action") {
+      }
+
+      if (paymentIntent.status === "requires_action") {
         return {
           success: false,
           requiresAction: true,
@@ -103,19 +104,20 @@ export class PaymentService {
           status: paymentIntent.status,
           message: "Additional action required for payment",
         };
-      } else {
-        return {
-          success: false,
-          status: paymentIntent.status,
-          message: `Payment status: ${paymentIntent.status}`,
-        };
       }
+
+      return {
+        success: false,
+        status: paymentIntent.status,
+        message: `Payment status: ${paymentIntent.status}`,
+      };
     } catch (error) {
       console.error("Stripe payment confirmation error:", error);
       throw new Error("Failed to confirm payment");
     }
   }
 
+  // ------------------ Attach Payment Method ------------------
   static async attachPaymentMethod(
     paymentMethodId: string,
     customerId?: string
@@ -127,25 +129,27 @@ export class PaymentService {
           { customer: customerId }
         );
         return { success: true, paymentMethod };
-      } else {
-        const paymentMethod = await stripe.paymentMethods.retrieve(
-          paymentMethodId
-        );
-        return { success: true, paymentMethod };
       }
+
+      const paymentMethod = await stripe.paymentMethods.retrieve(
+        paymentMethodId
+      );
+      return { success: true, paymentMethod };
     } catch (error) {
       console.error("Payment method attachment error:", error);
       throw new Error("Failed to attach payment method");
     }
   }
 
-  static async createCustomer(userId: number, email: string, name: string) {
+  // ------------------ Create Customer (UUID FIX APPLIED) ------------------
+  static async createCustomer(userId: string, email: string, name: string) {
     try {
       const customer = await stripe.customers.create({
         email,
         name,
-        metadata: { userId: userId.toString() },
+        metadata: { userId }, // UUID stored correctly
       });
+
       return { success: true, customerId: customer.id };
     } catch (error) {
       console.error("Customer creation error:", error);
@@ -153,12 +157,14 @@ export class PaymentService {
     }
   }
 
+  // ------------------ Refund Payment ------------------
   static async refundPayment(paymentIntentId: string, amount?: number) {
     try {
-      const refundParams: any = { payment_intent: paymentIntentId };
-      if (amount) refundParams.amount = Math.round(amount * 100);
+      const params: any = { payment_intent: paymentIntentId };
+      if (amount) params.amount = Math.round(amount * 100);
 
-      const refund = await stripe.refunds.create(refundParams);
+      const refund = await stripe.refunds.create(params);
+
       return {
         success: true,
         refundId: refund.id,
@@ -171,11 +177,13 @@ export class PaymentService {
     }
   }
 
+  // ------------------ Get Payment Details ------------------
   static async getPaymentDetails(paymentIntentId: string) {
     try {
       const paymentIntent = await stripe.paymentIntents.retrieve(
         paymentIntentId
       );
+
       return {
         success: true,
         paymentIntent: {
@@ -195,6 +203,7 @@ export class PaymentService {
     }
   }
 
+  // ------------------ Webhook Handler ------------------
   static async handleWebhook(payload: any, signature: string) {
     try {
       const event = stripe.webhooks.constructEvent(
@@ -203,28 +212,23 @@ export class PaymentService {
         config.stripe.webhookSecret
       );
 
-      console.log(`Webhook received: ${event.type}`);
+      console.log("Webhook:", event.type);
 
       switch (event.type) {
         case "payment_intent.succeeded":
-          const succeededPayment = event.data.object;
-          console.log("Payment succeeded:", succeededPayment.id);
-          await this.handleSuccessfulPayment(succeededPayment);
+          await this.handleSuccessfulPayment(event.data.object);
           break;
 
         case "payment_intent.payment_failed":
-          const failedPayment = event.data.object;
-          console.log("Payment failed:", failedPayment.id);
-          await this.handleFailedPayment(failedPayment);
+          await this.handleFailedPayment(event.data.object);
           break;
 
         case "payment_intent.requires_action":
-          const requiresAction = event.data.object;
-          console.log("Payment requires action:", requiresAction.id);
+          console.log("Payment requires action");
           break;
 
         default:
-          console.log(`Unhandled event type: ${event.type}`);
+          console.log("Unhandled event:", event.type);
       }
 
       return { received: true };
@@ -234,10 +238,12 @@ export class PaymentService {
     }
   }
 
+  // ------------------ Successful Payment Handler ------------------
   private static async handleSuccessfulPayment(paymentIntent: any) {
     try {
       const { Order } = await import("../models/Order");
-      const orderId = paymentIntent.metadata.orderId;
+      const orderId = paymentIntent.metadata.orderId; // UUID
+
       if (orderId) {
         const order = await Order.findByPk(orderId);
         if (order) {
@@ -245,18 +251,19 @@ export class PaymentService {
             status: "confirmed",
             stripePaymentId: paymentIntent.id,
           });
-          console.log(`Order ${orderId} confirmed after successful payment`);
         }
       }
     } catch (error) {
-      console.error("Error handling successful payment:", error);
+      console.error("successful payment handler error:", error);
     }
   }
 
+  // ------------------ Failed Payment Handler ------------------
   private static async handleFailedPayment(paymentIntent: any) {
     try {
       const { Order } = await import("../models/Order");
-      const orderId = paymentIntent.metadata.orderId;
+      const orderId = paymentIntent.metadata.orderId; // UUID
+
       if (orderId) {
         const order = await Order.findByPk(orderId);
         if (order) {
@@ -264,11 +271,10 @@ export class PaymentService {
             status: "cancelled",
             stripePaymentId: paymentIntent.id,
           });
-          console.log(`Order ${orderId} cancelled due to failed payment`);
         }
       }
     } catch (error) {
-      console.error("Error handling failed payment:", error);
+      console.error("failed payment handler error:", error);
     }
   }
 }

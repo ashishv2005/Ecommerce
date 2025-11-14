@@ -18,7 +18,8 @@ import {
 } from "../utils/email";
 
 export class OrderService {
-  static async createOrder(userId: number, cartItems: any[] = []) {
+  // ------------------ Create Order ------------------
+  static async createOrder(userId: string, cartItems: any[] = []) {
     const userCartItems =
       cartItems.length > 0
         ? cartItems
@@ -45,7 +46,7 @@ export class OrderService {
     }
 
     let totalAmount = 0;
-    const orderItems = [];
+    const orderItems: any[] = [];
 
     for (const cartItem of userCartItems) {
       const product = (cartItem as any).product;
@@ -63,15 +64,17 @@ export class OrderService {
       totalAmount += itemTotal;
 
       orderItems.push({
-        productId: product.id,
+        productId: product.id, // UUID
         quantity: cartItem.quantity,
         unitPrice: pricing.price,
         totalPrice: itemTotal,
-        batchId: pricing.id,
+        batchId: pricing.id, // UUID
       });
     }
 
     let discountAmount = 0;
+
+    // Redis abandoned cart discount
     const userDiscount = await redis.get(
       `user:${userId}:abandoned_cart_discount`
     );
@@ -97,10 +100,11 @@ export class OrderService {
     await OrderItem.bulkCreate(
       orderItems.map((item) => ({
         ...item,
-        orderId: order.id,
+        orderId: order.id, // UUID
       }))
     );
 
+    // Update stock & sold count
     for (const cartItem of userCartItems) {
       await Product.decrement("currentStock", {
         by: cartItem.quantity,
@@ -122,8 +126,9 @@ export class OrderService {
     return order;
   }
 
+  // ------------------ Get User Orders ------------------
   static async getUserOrders(
-    userId: number,
+    userId: string,
     page: number = 1,
     limit: number = 10
   ) {
@@ -164,8 +169,9 @@ export class OrderService {
     };
   }
 
-  static async getOrderById(orderId: number) {
-    const order = await Order.findByPk(orderId, {
+  // ------------------ Get Order By ID ------------------
+  static async getOrderById(orderId: string) {
+    return await Order.findByPk(orderId, {
       include: [
         {
           model: OrderItem,
@@ -198,14 +204,13 @@ export class OrderService {
         },
       ],
     });
-
-    return order;
   }
 
+  // ------------------ Update Order Status ------------------
   static async updateOrderStatus(
-    orderId: number,
+    orderId: string,
     status: string,
-    adminId?: number
+    adminId?: string
   ) {
     const order = await Order.findByPk(orderId, {
       include: [
@@ -231,11 +236,11 @@ export class OrderService {
 
     await order.update({ status: orderStatus });
 
-    // SEND EMAIL NOTIFICATIONS FOR ALL STATUS UPDATES
     const user = (order as any).user;
+
+    // ------------------ Email Notifications ------------------
     if (user && user.email) {
       try {
-        // Send specific email based on status
         switch (orderStatus) {
           case "confirmed":
             await sendOrderConfirmationEmail(user.email, order);
@@ -256,34 +261,31 @@ export class OrderService {
               oldStatus,
               orderStatus
             );
-            break;
         }
 
         console.log(
-          `✅ ${orderStatus} email sent to ${user.email} for order #${order.id}`
+          `Email (${orderStatus}) sent to ${user.email} for order ${order.id}`
         );
       } catch (emailError) {
-        console.error(
-          `❌ Failed to send ${orderStatus} email to ${user.email}:`,
-          emailError
-        );
+        console.error("Email sending failed:", emailError);
       }
     }
 
-    if (status === "confirmed") {
+    // ------------------ Reward Loyalty ------------------
+    if (orderStatus === "confirmed") {
       if (user) {
         await User.increment("totalPurchases", {
           by: order.finalAmount,
           where: { id: order.userId },
         });
 
-        const userRecord = await User.findByPk(order.userId);
+        const updatedUser = await User.findByPk(order.userId);
         if (
-          userRecord &&
-          userRecord.totalPurchases > 1000 &&
-          !userRecord.discountEligible
+          updatedUser &&
+          updatedUser.totalPurchases > 1000 &&
+          !updatedUser.discountEligible
         ) {
-          await userRecord.update({ discountEligible: true });
+          await updatedUser.update({ discountEligible: true });
         }
       }
     }

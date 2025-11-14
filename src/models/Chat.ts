@@ -3,9 +3,9 @@ import { DataTypes, Model, Optional, Sequelize } from "sequelize";
 export type SenderType = "user" | "admin";
 
 export interface ChatAttributes {
-  id: number;
-  userId: number;
-  adminId?: number;
+  id: string;
+  userId: string;
+  adminId?: string;
   message: string;
   sender: SenderType;
   read: boolean;
@@ -20,9 +20,9 @@ export class Chat
   extends Model<ChatAttributes, ChatCreationAttributes>
   implements ChatAttributes
 {
-  public id!: number;
-  public userId!: number;
-  public adminId?: number;
+  public id!: string;
+  public userId!: string;
+  public adminId?: string;
   public message!: string;
   public sender!: SenderType;
   public read!: boolean;
@@ -33,12 +33,12 @@ export class Chat
     Chat.init(
       {
         id: {
-          type: DataTypes.INTEGER.UNSIGNED,
-          autoIncrement: true,
+          type: DataTypes.UUID,
+          defaultValue: DataTypes.UUIDV4,
           primaryKey: true,
         },
         userId: {
-          type: DataTypes.INTEGER.UNSIGNED,
+          type: DataTypes.UUID,
           allowNull: false,
           references: {
             model: "users",
@@ -47,7 +47,7 @@ export class Chat
           onDelete: "CASCADE",
         },
         adminId: {
-          type: DataTypes.INTEGER.UNSIGNED,
+          type: DataTypes.UUID,
           allowNull: true,
           references: {
             model: "users",

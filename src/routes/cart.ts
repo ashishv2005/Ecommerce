@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { body } from "express-validator";
+import { body, param } from "express-validator";
 import {
   addToCart,
   getCart,
@@ -15,12 +15,11 @@ const router = Router();
 
 router.use(authenticate);
 
+// ------------------ Add to Cart ------------------
 router.post(
   "/",
   [
-    body("productId")
-      .isInt({ min: 1 })
-      .withMessage("Valid product ID is required"),
+    body("productId").isUUID().withMessage("Valid product UUID is required"),
     body("quantity")
       .isInt({ min: 1 })
       .withMessage("Quantity must be at least 1"),
@@ -29,10 +28,14 @@ router.post(
   addToCart
 );
 
+// ------------------ Get Cart ------------------
 router.get("/", getCart);
+
+// ------------------ Update Cart Item ------------------
 router.put(
   "/:id",
   [
+    param("id").isUUID().withMessage("Invalid cart ID format"),
     body("quantity")
       .isInt({ min: 1 })
       .withMessage("Quantity must be at least 1"),
@@ -40,10 +43,20 @@ router.put(
   ],
   updateCartItem
 );
-router.delete("/:id", removeFromCart);
 
-// Admin only routes for abandoned carts
+// ------------------ Remove Cart Item ------------------
+router.delete(
+  "/:id",
+  [
+    param("id").isUUID().withMessage("Invalid cart ID format"),
+    handleValidationErrors,
+  ],
+  removeFromCart
+);
+
+// ------------------ Admin: Abandoned Cart ------------------
 router.get("/admin/abandoned", authorize("admin"), getAbandonedCarts);
+
 router.post(
   "/admin/send-notifications",
   authorize("admin"),

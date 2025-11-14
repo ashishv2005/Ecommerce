@@ -1,9 +1,9 @@
 import { DataTypes, Model, Optional, Sequelize } from "sequelize";
 
 export interface OrderItemAttributes {
-  id: number;
-  orderId: number;
-  productId: number;
+  id: string;
+  orderId: string;
+  productId: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -19,9 +19,9 @@ export class OrderItem
   extends Model<OrderItemAttributes, OrderItemCreationAttributes>
   implements OrderItemAttributes
 {
-  public id!: number;
-  public orderId!: number;
-  public productId!: number;
+  public id!: string;
+  public orderId!: string;
+  public productId!: string;
   public quantity!: number;
   public unitPrice!: number;
   public totalPrice!: number;
@@ -33,12 +33,12 @@ export class OrderItem
     OrderItem.init(
       {
         id: {
-          type: DataTypes.INTEGER.UNSIGNED,
-          autoIncrement: true,
+          type: DataTypes.UUID,
+          defaultValue: DataTypes.UUIDV4,
           primaryKey: true,
         },
         orderId: {
-          type: DataTypes.INTEGER.UNSIGNED,
+          type: DataTypes.UUID,
           allowNull: false,
           references: {
             model: "orders",
@@ -47,7 +47,7 @@ export class OrderItem
           onDelete: "CASCADE",
         },
         productId: {
-          type: DataTypes.INTEGER.UNSIGNED,
+          type: DataTypes.UUID,
           allowNull: false,
           references: {
             model: "products",
@@ -76,7 +76,7 @@ export class OrderItem
           },
         },
         batchId: {
-          type: DataTypes.INTEGER.UNSIGNED,
+          type: DataTypes.UUID,
           allowNull: false,
           references: {
             model: "product_pricing",

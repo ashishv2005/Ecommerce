@@ -1,8 +1,8 @@
 import { DataTypes, Model, Optional, Sequelize } from "sequelize";
 
 export interface ProductImageAttributes {
-  id: number;
-  productId: number;
+  id: string;
+  productId: string;
   imageUrl: string;
   isPrimary: boolean;
   altText?: string;
@@ -17,8 +17,8 @@ export class ProductImage
   extends Model<ProductImageAttributes, ProductImageCreationAttributes>
   implements ProductImageAttributes
 {
-  public id!: number;
-  public productId!: number;
+  public id!: string;
+  public productId!: string;
   public imageUrl!: string;
   public isPrimary!: boolean;
   public altText?: string;
@@ -29,12 +29,12 @@ export class ProductImage
     ProductImage.init(
       {
         id: {
-          type: DataTypes.INTEGER.UNSIGNED,
-          autoIncrement: true,
+          type: DataTypes.UUID,
+          defaultValue: DataTypes.UUIDV4,
           primaryKey: true,
         },
         productId: {
-          type: DataTypes.INTEGER.UNSIGNED,
+          type: DataTypes.UUID,
           allowNull: false,
           references: {
             model: "products",

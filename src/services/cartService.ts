@@ -5,8 +5,8 @@ import { sendAbandonedCartEmail } from "../utils/email";
 
 export class CartService {
   static async addToCart(
-    userId: number,
-    productId: number,
+    userId: string,
+    productId: string,
     quantity: number = 1
   ) {
     const product = await Product.findByPk(productId);
@@ -63,7 +63,7 @@ export class CartService {
     return cartItem;
   }
 
-  static async getUserCart(userId: number) {
+  static async getUserCart(userId: string) {
     return await Cart.findAll({
       where: {
         userId,
@@ -87,7 +87,7 @@ export class CartService {
     });
   }
 
-  static async getUserAbandonedCarts(userId: number) {
+  static async getUserAbandonedCarts(userId: string) {
     return await Cart.findAll({
       where: {
         userId,
@@ -111,8 +111,8 @@ export class CartService {
   }
 
   static async updateCartItem(
-    cartId: number,
-    userId: number,
+    cartId: string,
+    userId: string,
     quantity: number
   ) {
     const cartItem = await Cart.findOne({
@@ -138,7 +138,7 @@ export class CartService {
     return cartItem;
   }
 
-  static async removeFromCart(cartId: number, userId: number) {
+  static async removeFromCart(cartId: string, userId: string) {
     const cartItem = await Cart.findOne({
       where: { id: cartId, userId, abandoned: false },
     });
@@ -234,7 +234,7 @@ export class CartService {
     let sentCount = 0;
 
     // Group carts by user
-    const userCartsMap = new Map<number, Cart[]>();
+    const userCartsMap = new Map<string, Cart[]>();
 
     for (const cart of expiredCarts) {
       const userId = cart.userId;
@@ -344,7 +344,7 @@ export class CartService {
   }
 
   // Restore abandoned cart to active
-  static async restoreAbandonedCart(userId: number, productId?: number) {
+  static async restoreAbandonedCart(userId: string, productId?: string) {
     const whereClause: any = {
       userId,
       abandoned: true,
@@ -371,7 +371,7 @@ export class CartService {
     return result[0];
   }
 
-  static async applyAbandonedCartDiscount(userId: number) {
+  static async applyAbandonedCartDiscount(userId: string) {
     const abandonedCarts = await Cart.findAll({
       where: {
         userId,
@@ -389,7 +389,7 @@ export class CartService {
   }
 
   // Debug method to check cart status
-  static async debugCartStatus(userId?: number) {
+  static async debugCartStatus(userId?: string) {
     const whereClause: any = {};
     if (userId) {
       whereClause.userId = userId;

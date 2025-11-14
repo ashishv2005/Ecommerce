@@ -8,8 +8,8 @@ export type OrderStatus =
   | "cancelled";
 
 export interface OrderAttributes {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   totalAmount: number;
   discountAmount: number;
   finalAmount: number;
@@ -36,8 +36,8 @@ export class Order
   extends Model<OrderAttributes, OrderCreationAttributes>
   implements OrderAttributes
 {
-  public id!: number;
-  public userId!: number;
+  public id!: string;
+  public userId!: string;
   public totalAmount!: number;
   public discountAmount!: number;
   public finalAmount!: number;
@@ -52,12 +52,12 @@ export class Order
     Order.init(
       {
         id: {
-          type: DataTypes.INTEGER.UNSIGNED,
-          autoIncrement: true,
+          type: DataTypes.UUID,
+          defaultValue: DataTypes.UUIDV4,
           primaryKey: true,
         },
         userId: {
-          type: DataTypes.INTEGER.UNSIGNED,
+          type: DataTypes.UUID,
           allowNull: false,
           references: {
             model: "users",

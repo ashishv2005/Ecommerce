@@ -1,8 +1,8 @@
 import { DataTypes, Model, Optional, Sequelize } from "sequelize";
 
 export interface ProductPricingAttributes {
-  id: number;
-  productId: number;
+  id: string;
+  productId: string;
   batchStart: number;
   batchEnd?: number;
   price: number;
@@ -19,8 +19,8 @@ export class ProductPricing
   extends Model<ProductPricingAttributes, ProductPricingCreationAttributes>
   implements ProductPricingAttributes
 {
-  public id!: number;
-  public productId!: number;
+  public id!: string;
+  public productId!: string;
   public batchStart!: number;
   public batchEnd?: number;
   public price!: number;
@@ -33,12 +33,12 @@ export class ProductPricing
     ProductPricing.init(
       {
         id: {
-          type: DataTypes.INTEGER.UNSIGNED,
-          autoIncrement: true,
+          type: DataTypes.UUID,
+          defaultValue: DataTypes.UUIDV4,
           primaryKey: true,
         },
         productId: {
-          type: DataTypes.INTEGER.UNSIGNED,
+          type: DataTypes.UUID,
           allowNull: false,
           references: {
             model: "products",

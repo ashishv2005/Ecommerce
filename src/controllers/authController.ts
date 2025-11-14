@@ -6,6 +6,7 @@ import { config } from "../config/config";
 import redis from "../utils/redis";
 import { AuthRequest } from "../middleware/auth";
 import { hashPassword, comparePassword } from "../utils/helpers";
+import { validate as isUUID } from "uuid";
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -125,11 +126,20 @@ export const getProfile = async (
   res: Response
 ): Promise<void> => {
   try {
-    const user = await User.findByPk(req.user.id);
+    const userId: string = req.user.id;
+
+    // UUID validation added
+    if (!isUUID(userId)) {
+      res.status(400).json({ message: "Invalid user ID format" });
+      return;
+    }
+
+    const user = await User.findByPk(userId);
     if (!user) {
       res.status(404).json({ message: "User not found" });
       return;
     }
+
     res.json(user);
   } catch (error) {
     console.error("Get profile error:", error);
@@ -137,7 +147,6 @@ export const getProfile = async (
   }
 };
 
-// Admin only - Create admin user
 export const createAdmin = async (
   req: AuthRequest,
   res: Response

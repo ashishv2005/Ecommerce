@@ -1,9 +1,9 @@
 import { DataTypes, Model, Optional, Sequelize } from "sequelize";
 
 export interface CartAttributes {
-  id: number;
-  userId: number;
-  productId: number;
+  id: string;
+  userId: string;
+  productId: string;
   quantity: number;
   addedAt: Date;
   expiresAt: Date;
@@ -23,9 +23,9 @@ export class Cart
   extends Model<CartAttributes, CartCreationAttributes>
   implements CartAttributes
 {
-  public id!: number;
-  public userId!: number;
-  public productId!: number;
+  public id!: string;
+  public userId!: string;
+  public productId!: string;
   public quantity!: number;
   public addedAt!: Date;
   public expiresAt!: Date;
@@ -38,12 +38,12 @@ export class Cart
     Cart.init(
       {
         id: {
-          type: DataTypes.INTEGER.UNSIGNED,
-          autoIncrement: true,
+          type: DataTypes.UUID,
+          defaultValue: DataTypes.UUIDV4,
           primaryKey: true,
         },
         userId: {
-          type: DataTypes.INTEGER.UNSIGNED,
+          type: DataTypes.UUID,
           allowNull: false,
           references: {
             model: "users",
@@ -52,7 +52,7 @@ export class Cart
           onDelete: "CASCADE",
         },
         productId: {
-          type: DataTypes.INTEGER.UNSIGNED,
+          type: DataTypes.UUID,
           allowNull: false,
           references: {
             model: "products",

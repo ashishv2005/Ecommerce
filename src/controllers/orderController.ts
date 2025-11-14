@@ -2,88 +2,60 @@ import { Request, Response } from "express";
 import { OrderService } from "../services/orderService";
 import { PaymentService } from "../services/paymentService";
 import { AuthRequest } from "../middleware/auth";
+import { validate as isUUID } from "uuid";
 
-export const createOrder = async (
-  req: AuthRequest,
-  res: Response
-): Promise<void> => {
+// ------------------ Create Order ------------------
+export const createOrder = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId: string = req.user.id;
     const { cartItems, shippingAddress, billingAddress, paymentMethod } =
       req.body;
 
     const order = await OrderService.createOrder(userId, cartItems);
 
     if (shippingAddress || billingAddress) {
-      await order.update({
-        shippingAddress,
-        billingAddress,
-      });
+      await order.update({ shippingAddress, billingAddress });
     }
 
     let payment;
     if (paymentMethod === "upi") {
       payment = await PaymentService.createUPIPayment(order.finalAmount, {
-        orderId: order.id.toString(),
-        userId: userId.toString(),
+        orderId: order.id,
+        userId,
       });
     } else {
       payment = await PaymentService.createPaymentIntent(order.finalAmount, {
-        orderId: order.id.toString(),
-        userId: userId.toString(),
+        orderId: order.id,
+        userId,
       });
     }
 
-    res.json({
-      order,
-      payment,
-    });
+    return res.json({ order, payment });
   } catch (error: any) {
     console.error("Create order error:", error);
-    res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: error.message });
   }
 };
 
-export const confirmOrder = async (
-  req: AuthRequest,
-  res: Response
-): Promise<void> => {
+// ------------------ Confirm Order ------------------
+export const confirmOrder = async (req: AuthRequest, res: Response) => {
   try {
     const { orderId } = req.params;
     const { paymentIntentId, paymentMethodId } = req.body;
 
-    if (!orderId) {
-      res.status(400).json({ message: "Order ID is required" });
-      return;
+    if (!orderId || !isUUID(orderId)) {
+      return res.status(400).json({ message: "Invalid order ID format" });
     }
 
     if (!paymentIntentId) {
-      res.status(400).json({ message: "Payment intent ID is required" });
-      return;
+      return res.status(400).json({ message: "Payment intent ID is required" });
     }
 
-    const orderIdNumber = parseInt(orderId);
-    if (isNaN(orderIdNumber)) {
-      res.status(400).json({ message: "Invalid order ID" });
-      return;
-    }
-
-    const existingOrder = await OrderService.getOrderById(orderIdNumber);
+    const existingOrder = await OrderService.getOrderById(orderId);
     if (!existingOrder) {
-      res.status(404).json({ message: "Order not found" });
-      return;
+      return res.status(404).json({ message: "Order not found" });
     }
 
-    if (existingOrder.status === "confirmed") {
-      res.json({
-        message: "Order is already confirmed",
-        order: existingOrder,
-        payment: { success: true, message: "Payment already completed" },
-      });
-      return;
-    }
-
-    // Check payment status first before trying to confirm
     let paymentResult;
     try {
       paymentResult = await PaymentService.confirmPayment(
@@ -98,7 +70,7 @@ export const confirmOrder = async (
         paymentResult = {
           success: true,
           paymentIntent: paymentError.payment_intent,
-          message: "Payment already completed successfully",
+          message: "Payment already completed",
         };
       } else {
         throw paymentError;
@@ -106,210 +78,156 @@ export const confirmOrder = async (
     }
 
     if (paymentResult.success) {
-      const order = await OrderService.updateOrderStatus(
-        orderIdNumber,
+      const updatedOrder = await OrderService.updateOrderStatus(
+        orderId,
         "confirmed"
       );
 
-      res.json({
-        message: "Order confirmed successfully",
-        order,
+      return res.json({
+        message: "Order confirmed",
+        order: updatedOrder,
         payment: paymentResult,
       });
-    } else if (paymentResult.requiresAction) {
-      res.json({
-        message: "Additional action required for payment",
+    }
+
+    if (paymentResult.requiresAction) {
+      return res.json({
         requiresAction: true,
         clientSecret: paymentResult.clientSecret,
-        orderId: orderId,
-      });
-    } else {
-      res.status(400).json({
-        message: paymentResult.message || "Payment not completed",
+        orderId,
       });
     }
+
+    return res.status(400).json({ message: paymentResult.message });
   } catch (error: any) {
     console.error("Confirm order error:", error);
-
-    if (error.code === "payment_intent_unexpected_state") {
-      res.status(400).json({
-        message: "Payment has already been processed",
-        details:
-          "This payment has already been completed and cannot be confirmed again",
-      });
-    } else {
-      res.status(400).json({ message: error.message });
-    }
+    return res.status(400).json({ message: error.message });
   }
 };
-export const getUserOrders = async (
-  req: AuthRequest,
-  res: Response
-): Promise<void> => {
+
+// ------------------ Get User Orders ------------------
+export const getUserOrders = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user.id;
-    const page =
-      typeof req.query.page === "string" ? parseInt(req.query.page) : 1;
-    const limit =
-      typeof req.query.limit === "string" ? parseInt(req.query.limit) : 10;
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
 
     const result = await OrderService.getUserOrders(userId, page, limit);
-    res.json(result);
+    return res.json(result);
   } catch (error: any) {
     console.error("Get user orders error:", error);
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 };
 
-export const updateOrderStatus = async (
-  req: AuthRequest,
-  res: Response
-): Promise<void> => {
+// ------------------ Update Order Status ------------------
+export const updateOrderStatus = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+
+    if (!id || !isUUID(id)) {
+      return res.status(400).json({ message: "Invalid order ID format" });
+    }
+
     const adminId = req.user.id;
 
-    // Check if id is defined before parsing
-    if (!id) {
-      res.status(400).json({ message: "Order ID is required" });
-      return;
-    }
+    const order = await OrderService.updateOrderStatus(id, status, adminId);
 
-    const orderId = parseInt(id);
-    if (isNaN(orderId)) {
-      res.status(400).json({ message: "Invalid order ID" });
-      return;
-    }
-
-    if (!status) {
-      res.status(400).json({ message: "Status is required" });
-      return;
-    }
-
-    const order = await OrderService.updateOrderStatus(
-      orderId,
-      status,
-      adminId
-    );
-    res.json({
-      message: "Order status updated successfully",
+    return res.json({
+      message: "Order status updated",
       order,
     });
   } catch (error: any) {
     console.error("Update order status error:", error);
-    res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: error.message });
   }
 };
 
-export const handlePaymentWebhook = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const signature = req.headers["stripe-signature"] as string;
-    const payload = req.body;
-
-    if (!signature) {
-      res.status(400).json({ message: "Stripe signature is required" });
-      return;
-    }
-
-    await PaymentService.handleWebhook(payload, signature);
-    res.json({ received: true });
-  } catch (error: any) {
-    console.error("Payment webhook error:", error);
-    res.status(400).json({ message: error.message });
-  }
-};
-
-export const refundPayment = async (
-  req: AuthRequest,
-  res: Response
-): Promise<void> => {
+// ------------------ Refund Payment ------------------
+export const refundPayment = async (req: AuthRequest, res: Response) => {
   try {
     const { orderId } = req.params;
     const { amount } = req.body;
 
-    // Check if orderId is defined before parsing
-    if (!orderId) {
-      res.status(400).json({ message: "Order ID is required" });
-      return;
+    if (!orderId || !isUUID(orderId)) {
+      return res.status(400).json({ message: "Invalid order ID format" });
     }
 
-    // Use the correct method name getOrderById (not getOrderByld)
-    const order = await OrderService.getOrderById(parseInt(orderId));
+    const order = await OrderService.getOrderById(orderId);
     if (!order) {
-      res.status(404).json({ message: "Order not found" });
-      return;
+      return res.status(404).json({ message: "Order not found" });
     }
 
     if (!order.stripePaymentId) {
-      res.status(400).json({ message: "No payment found for this order" });
-      return;
+      return res
+        .status(400)
+        .json({ message: "No payment found for this order" });
     }
 
-    const refundResult = await PaymentService.refundPayment(
+    const refund = await PaymentService.refundPayment(
       order.stripePaymentId,
       amount
     );
 
-    if (refundResult.success) {
-      // Update order status to refunded
-      await OrderService.updateOrderStatus(parseInt(orderId), "refunded");
+    await OrderService.updateOrderStatus(orderId, "refunded");
 
-      res.json({
-        message: "Refund processed successfully",
-        refund: refundResult,
-      });
-    } else {
-      res.status(400).json({ message: "Refund failed" });
-    }
+    return res.json({
+      message: "Refund successful",
+      refund,
+    });
   } catch (error: any) {
     console.error("Refund error:", error);
-    res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: error.message });
   }
 };
 
-export const getPaymentDetails = async (
-  req: AuthRequest,
-  res: Response
-): Promise<void> => {
+// ------------------ Get Payment Details ------------------
+export const getPaymentDetails = async (req: AuthRequest, res: Response) => {
   try {
     const { orderId } = req.params;
 
-    // Check if orderId is defined before parsing
-    if (!orderId) {
-      res.status(400).json({ message: "Order ID is required" });
-      return;
+    if (!orderId || !isUUID(orderId)) {
+      return res.status(400).json({ message: "Invalid order ID format" });
     }
 
-    // Use the correct method name getOrderById (not getOrderByld)
-    const order = await OrderService.getOrderById(parseInt(orderId));
+    const order = await OrderService.getOrderById(orderId);
     if (!order) {
-      res.status(404).json({ message: "Order not found" });
-      return;
+      return res.status(404).json({ message: "Order not found" });
     }
 
     if (!order.stripePaymentId) {
-      res.status(400).json({ message: "No payment found for this order" });
-      return;
+      return res
+        .status(400)
+        .json({ message: "No payment found for this order" });
     }
 
-    const paymentDetails = await PaymentService.getPaymentDetails(
+    const payment = await PaymentService.getPaymentDetails(
       order.stripePaymentId
     );
 
-    if (paymentDetails.success) {
-      res.json({
-        order,
-        payment: paymentDetails.paymentIntent,
-      });
-    } else {
-      res.status(400).json({ message: "Failed to retrieve payment details" });
-    }
+    return res.json({
+      order,
+      payment: payment.paymentIntent,
+    });
   } catch (error: any) {
     console.error("Get payment details error:", error);
-    res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+export const handlePaymentWebhook = async (req: Request, res: Response) => {
+  try {
+    const signature = req.headers["stripe-signature"] as string;
+
+    if (!signature) {
+      return res.status(400).json({ message: "Stripe signature missing" });
+    }
+
+    await PaymentService.handleWebhook(req.body, signature);
+    return res.json({ received: true });
+  } catch (error: any) {
+    console.error("Webhook error:", error);
+    return res.status(400).json({ message: error.message });
   }
 };

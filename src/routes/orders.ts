@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { body } from "express-validator";
+import { body, param } from "express-validator";
 import {
   createOrder,
   confirmOrder,
@@ -16,6 +16,7 @@ const router = Router();
 
 router.use(authenticate);
 
+// ------------------ Create Order ------------------
 router.post(
   "/",
   [
@@ -30,9 +31,11 @@ router.post(
   createOrder
 );
 
+// ------------------ Confirm Order ------------------
 router.post(
   "/:orderId/confirm",
   [
+    param("orderId").isUUID().withMessage("Invalid order ID format"),
     body("paymentIntentId")
       .notEmpty()
       .withMessage("Payment intent ID is required"),
@@ -42,12 +45,15 @@ router.post(
   confirmOrder
 );
 
+// ------------------ Get User Orders ------------------
 router.get("/", getUserOrders);
 
+// ------------------ Update Order Status (Admin) ------------------
 router.put(
   "/:id/status",
   [
     authorize("admin"),
+    param("id").isUUID().withMessage("Invalid order ID format"),
     body("status")
       .isIn([
         "pending",
@@ -63,11 +69,12 @@ router.put(
   updateOrderStatus
 );
 
-// Payment related routes
+// ------------------ Refund Payment ------------------
 router.post(
   "/:orderId/refund",
   [
     authorize("admin"),
+    param("orderId").isUUID().withMessage("Invalid order ID format"),
     body("amount")
       .optional()
       .isFloat({ min: 0.01 })
@@ -77,9 +84,17 @@ router.post(
   refundPayment
 );
 
-router.get("/:orderId/payment-details", getPaymentDetails);
+// ------------------ Get Payment Details ------------------
+router.get(
+  "/:orderId/payment-details",
+  [
+    param("orderId").isUUID().withMessage("Invalid order ID format"),
+    handleValidationErrors,
+  ],
+  getPaymentDetails
+);
 
-// Webhook route (no authentication required for Stripe webhooks)
+// ------------------ Stripe Webhook ------------------
 router.post("/webhook", handlePaymentWebhook);
 
 export default router;

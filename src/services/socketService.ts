@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import { Chat, User } from "../models";
+import { validate as isUUID } from "uuid";
 
 export class SocketService {
   private io: Server;
@@ -13,26 +14,40 @@ export class SocketService {
     this.io.on("connection", (socket) => {
       console.log("User connected:", socket.id);
 
+      // JOIN USER ROOM
       socket.on("join_user", (userId: string) => {
+        if (!isUUID(userId)) return;
         socket.join(`user_${userId}`);
       });
 
+      // JOIN ADMIN ROOM
       socket.on("join_admin", () => {
         socket.join("admin_room");
       });
 
+      // SEND MESSAGE
       socket.on(
         "send_message",
         async (data: {
-          userId: number;
+          userId: string; // UUID
           message: string;
           sender: "user" | "admin";
-          adminId?: number;
+          adminId?: string; // UUID
         }) => {
           try {
+            if (!isUUID(data.userId)) {
+              socket.emit("error", { message: "Invalid user ID format" });
+              return;
+            }
+
+            if (data.adminId && !isUUID(data.adminId)) {
+              socket.emit("error", { message: "Invalid admin ID format" });
+              return;
+            }
+
             const chat = await Chat.create({
               userId: data.userId,
-              adminId: data.adminId,
+              adminId: data.adminId || undefined,
               message: data.message,
               sender: data.sender,
               read: false,
@@ -48,7 +63,10 @@ export class SocketService {
               ],
             });
 
+            // Send to admin room
             this.io.to("admin_room").emit("new_message", chatWithUser);
+
+            // Send to user room
             this.io.to(`user_${data.userId}`).emit("new_message", chatWithUser);
           } catch (error) {
             console.error("Send message error:", error);
@@ -57,9 +75,12 @@ export class SocketService {
         }
       );
 
+      // MARK MESSAGE AS READ
       socket.on(
         "mark_read",
-        async (data: { userId: number; sender: "user" | "admin" }) => {
+        async (data: { userId: string; sender: "user" | "admin" }) => {
+          if (!isUUID(data.userId)) return;
+
           await Chat.update(
             { read: true },
             {
@@ -79,7 +100,8 @@ export class SocketService {
     });
   }
 
-  static async getUserChats(userId: number) {
+  // ------------------ GET USER CHATS ------------------
+  static async getUserChats(userId: string) {
     return await Chat.findAll({
       where: { userId },
       include: [
@@ -93,6 +115,7 @@ export class SocketService {
     });
   }
 
+  // ------------------ GET ALL CHATS ------------------
   static async getAllChats() {
     return await Chat.findAll({
       include: [

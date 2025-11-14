@@ -3,6 +3,7 @@ import { ReportingService } from "../services/reportingService";
 import { User, Product, Order } from "../models";
 import { AuthRequest } from "../middleware/auth";
 import { Op } from "sequelize";
+import { validate as isUUID } from "uuid";
 
 export const getDashboardStats = async (req: AuthRequest, res: Response) => {
   try {
@@ -15,9 +16,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
         Product.count({ where: { isActive: true } }),
         Order.count(),
         Order.findAll({
-          where: {
-            createdAt: { [Op.gte]: thirtyDaysAgo },
-          },
+          where: { createdAt: { [Op.gte]: thirtyDaysAgo } },
           limit: 10,
           order: [["createdAt", "DESC"]],
         }),
@@ -48,6 +47,7 @@ export const getSalesReport = async (req: AuthRequest, res: Response) => {
     const start = startDate
       ? new Date(startDate as string)
       : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
     const end = endDate ? new Date(endDate as string) : new Date();
 
     const report = await ReportingService.getSalesReport(start, end);
@@ -100,6 +100,7 @@ export const getLowPerformingProducts = async (
   }
 };
 
+// ------------------ Stock Alerts ------------------
 export const getStockAlerts = async (req: AuthRequest, res: Response) => {
   try {
     const alerts = await ReportingService.getStockAlerts();
@@ -113,6 +114,12 @@ export const getStockAlerts = async (req: AuthRequest, res: Response) => {
 export const updateUserDiscount = async (req: AuthRequest, res: Response) => {
   try {
     const { userId } = req.params;
+
+    // UUID Validation
+    if (!userId || !isUUID(userId)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+
     const { discountEligible } = req.body;
 
     const user = await User.findByPk(userId);
@@ -121,6 +128,7 @@ export const updateUserDiscount = async (req: AuthRequest, res: Response) => {
     }
 
     await user.update({ discountEligible });
+
     return res.json({
       message: "User discount eligibility updated successfully",
     });

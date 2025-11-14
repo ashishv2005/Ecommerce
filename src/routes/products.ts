@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { body } from "express-validator";
+import { body, param } from "express-validator";
 import {
   getProducts,
   getProduct,
@@ -12,9 +12,19 @@ import { handleValidationErrors } from "../middleware/validation";
 
 const router = Router();
 
+// ------------------ Public Routes ------------------
 router.get("/", getProducts);
-router.get("/:id", getProduct);
 
+router.get(
+  "/:id",
+  [
+    param("id").isUUID().withMessage("Invalid product ID format"),
+    handleValidationErrors,
+  ],
+  getProduct
+);
+
+// ------------------ Admin Create Product ------------------
 router.post(
   "/",
   [
@@ -33,12 +43,28 @@ router.post(
   createProduct
 );
 
+// ------------------ Admin Update Product ------------------
 router.put(
   "/:id",
-  [authenticate, authorize("admin"), handleValidationErrors],
+  [
+    authenticate,
+    authorize("admin"),
+    param("id").isUUID().withMessage("Invalid product ID format"),
+    handleValidationErrors,
+  ],
   updateProduct
 );
 
-router.delete("/:id", [authenticate, authorize("admin")], deleteProduct);
+// ------------------ Admin Delete Product ------------------
+router.delete(
+  "/:id",
+  [
+    authenticate,
+    authorize("admin"),
+    param("id").isUUID().withMessage("Invalid product ID format"),
+    handleValidationErrors,
+  ],
+  deleteProduct
+);
 
 export default router;
